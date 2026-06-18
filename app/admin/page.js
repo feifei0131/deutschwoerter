@@ -2,6 +2,12 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+function toSafeFileName(str) {
+  return str.trim().toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss').replace(/[^a-z0-9_-]/g, '_')
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
@@ -55,7 +61,9 @@ export default function AdminPage() {
     setMessage('')
 
     try {
-      const wordId = await getOrCreateWord(word.trim().toLowerCase())
+      const wordKey = word.trim().toLowerCase()
+      const safeWord = toSafeFileName(word)
+      const wordId = await getOrCreateWord(wordKey)
 
       if (mediaType === 'video') {
         await supabase.from('materials').insert({
@@ -82,7 +90,7 @@ export default function AdminPage() {
           const file = files[i]
           setProgress(`上传中 ${i + 1} / ${files.length}`)
           const ext = file.name.split('.').pop()
-          const fileName = `${word.trim().toLowerCase()}_img_${Date.now()}_${i}.${ext}`
+          const fileName = `${safeWord}_img_${Date.now()}_${i}.${ext}`
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
@@ -99,7 +107,7 @@ export default function AdminPage() {
         setMessage(`✅ 成功上传 ${files.length} 张图片！`)
 
       } else if (mediaType === 'ppt') {
-        const groupId = `ppt_${word.trim().toLowerCase()}_${Date.now()}`
+        const groupId = `ppt_${safeWord}_${Date.now()}`
         const groupTitle = title || `${word.trim()} PPT`
 
         const { data: existing } = await supabase
@@ -115,7 +123,7 @@ export default function AdminPage() {
           const file = files[i]
           setProgress(`上传中 ${i + 1} / ${files.length}`)
           const ext = file.name.split('.').pop()
-          const fileName = `${word.trim().toLowerCase()}_ppt_${Date.now()}_${i}.${ext}`
+          const fileName = `${safeWord}_ppt_${Date.now()}_${i}.${ext}`
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
@@ -202,14 +210,14 @@ export default function AdminPage() {
           <input
             type="text" value={word}
             onChange={e => setWord(e.target.value)}
-            placeholder="例如：zeichnen" style={inputStyle}
+            placeholder="例如：schließen" style={inputStyle}
           />
 
           <label style={labelStyle}>素材标题（可选）</label>
           <input
             type="text" value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="例如：zeichnen家族解构指南" style={inputStyle}
+            placeholder="例如：schließen家族图解" style={inputStyle}
           />
 
           <label style={labelStyle}>素材类型 *</label>
