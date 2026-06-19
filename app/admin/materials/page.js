@@ -145,7 +145,7 @@ function MaterialRow({ material, onUpdate }) {
                   border: '1px solid #ddd', fontSize: '0.78rem'
                 }}
               />
-              <button onClick={addWord} disabled={saving} style={{
+              <button onClick={() => addWord()} disabled={saving} style={{
                 background: '#1a1a2e', color: 'white', border: 'none',
                 borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', cursor: 'pointer'
               }}>
