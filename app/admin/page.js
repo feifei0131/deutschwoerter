@@ -13,7 +13,7 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
 
-  const [word, setWord] = useState('')
+  const [words, setWords] = useState('')        // 逗号分隔，支持多词
   const [title, setTitle] = useState('')
   const [mediaType, setMediaType] = useState('image')
   const [videoUrl, setVideoUrl] = useState('')
@@ -29,31 +29,32 @@ export default function AdminPage() {
       body: JSON.stringify({ password })
     })
     const data = await res.json()
-    if (data.success) {
-      setAuthed(true)
-      setAuthError('')
-    } else {
-      setAuthError('密码错误')
-    }
+    if (data.success) { setAuthed(true); setAuthError('') }
+    else setAuthError('密码错误')
   }
 
+  // 确保词在 words 表存在，返回 word_id
   async function getOrCreateWord(w) {
-    const { data: existing } = await supabase
+    const { data } = await supabase
       .from('words')
-      .select('id')
-      .eq('word', w)
-      .single()
-    if (existing) return existing.id
-    const { data: newWord } = await supabase
-      .from('words')
-      .insert({ word: w })
+      .upsert({ word: w }, { onConflict: 'word' })
       .select('id')
       .single()
-    return newWord.id
+    return data?.id
+  }
+
+  // 将素材关联到多个词
+  async function linkMaterialToWords(materialId, wordIds) {
+    const rows = wordIds.map(word_id => ({ material_id: materialId, word_id }))
+    await supabase.from('material_words').upsert(rows, {
+      onConflict: 'material_id,word_id',
+      ignoreDuplicates: true
+    })
   }
 
   async function handleUpload() {
-    if (!word.trim()) return setMessage('请输入单词')
+    const wordList = words.split(/[,，\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean)
+    if (wordList.length === 0) return setMessage('请输入至少一个单词')
     if (mediaType !== 'video' && files.length === 0) return setMessage('请选择文件')
     if (mediaType === 'video' && !videoUrl.trim()) return setMessage('请输入视频链接')
 
@@ -61,30 +62,31 @@ export default function AdminPage() {
     setMessage('')
 
     try {
-      const wordKey = word.trim().toLowerCase()
-      const safeWord = toSafeFileName(word)
-      const wordId = await getOrCreateWord(wordKey)
+      // 获取所有关联词的 word_id（自动创建不存在的词）
+      const wordIds = await Promise.all(wordList.map(getOrCreateWord))
+      const validWordIds = wordIds.filter(Boolean)
+      // 取第一个词做文件名前缀
+      const safeWord = toSafeFileName(wordList[0])
 
       if (mediaType === 'video') {
-        await supabase.from('materials').insert({
-          word_id: wordId,
-          type: 'video',
-          media_type: 'video',
-          title: title || videoUrl,
-          file_url: videoUrl,
-          uploaded_by: 'admin'
-        })
-        setMessage('✅ 视频链接添加成功！')
+        const { data: material } = await supabase
+          .from('materials')
+          .insert({
+            type: 'video',
+            media_type: 'video',
+            title: title || videoUrl,
+            file_url: videoUrl,
+            uploaded_by: 'admin'
+          })
+          .select('id')
+          .single()
+        await linkMaterialToWords(material.id, validWordIds)
+        setMessage(`✅ 视频链接添加成功！已关联：${wordList.join('、')}`)
 
       } else if (mediaType === 'image') {
         const { data: existing } = await supabase
-          .from('materials')
-          .select('slide_order')
-          .eq('word_id', wordId)
-          .order('slide_order', { ascending: false })
-          .limit(1)
-        let startOrder = existing?.[0]?.slide_order != null
-          ? existing[0].slide_order + 1 : 0
+          .from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
+        let startOrder = existing?.[0]?.slide_order != null ? existing[0].slide_order + 1 : 0
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
@@ -94,30 +96,28 @@ export default function AdminPage() {
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
-          await supabase.from('materials').insert({
-            word_id: wordId,
-            type: 'image',
-            media_type: 'image',
-            title: title || file.name,
-            file_url: urlData.publicUrl,
-            slide_order: startOrder + i,
-            uploaded_by: 'admin'
-          })
+          const { data: material } = await supabase
+            .from('materials')
+            .insert({
+              type: 'image',
+              media_type: 'image',
+              title: title || file.name,
+              file_url: urlData.publicUrl,
+              slide_order: startOrder + i,
+              uploaded_by: 'admin'
+            })
+            .select('id')
+            .single()
+          await linkMaterialToWords(material.id, validWordIds)
         }
-        setMessage(`✅ 成功上传 ${files.length} 张图片！`)
+        setMessage(`✅ 成功上传 ${files.length} 张图片！已关联：${wordList.join('、')}`)
 
       } else if (mediaType === 'ppt') {
         const groupId = `ppt_${safeWord}_${Date.now()}`
-        const groupTitle = title || `${word.trim()} PPT`
-
+        const groupTitle = title || `${wordList[0]} PPT`
         const { data: existing } = await supabase
-          .from('materials')
-          .select('slide_order')
-          .eq('word_id', wordId)
-          .order('slide_order', { ascending: false })
-          .limit(1)
-        let startOrder = existing?.[0]?.slide_order != null
-          ? existing[0].slide_order + 1 : 0
+          .from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
+        let startOrder = existing?.[0]?.slide_order != null ? existing[0].slide_order + 1 : 0
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
@@ -127,27 +127,32 @@ export default function AdminPage() {
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
-          await supabase.from('materials').insert({
-            word_id: wordId,
-            type: 'ppt_slide',
-            media_type: 'ppt',
-            title: groupTitle,
-            group_id: groupId,
-            group_title: groupTitle,
-            is_cover: i === 0,
-            file_url: urlData.publicUrl,
-            slide_order: startOrder + i,
-            uploaded_by: 'admin'
-          })
+          const { data: material } = await supabase
+            .from('materials')
+            .insert({
+              type: 'ppt_slide',
+              media_type: 'ppt',
+              title: groupTitle,
+              group_id: groupId,
+              group_title: groupTitle,
+              is_cover: i === 0,
+              file_url: urlData.publicUrl,
+              slide_order: startOrder + i,
+              uploaded_by: 'admin'
+            })
+            .select('id')
+            .single()
+          await linkMaterialToWords(material.id, validWordIds)
         }
-        setMessage(`✅ 成功上传 ${files.length} 张PPT图片，第一张为封面！`)
+        setMessage(`✅ 成功上传 ${files.length} 张PPT！已关联：${wordList.join('、')}`)
       }
 
       setFiles([])
       setTitle('')
       setVideoUrl('')
       setProgress('')
-      document.getElementById('fileInput').value = ''
+      const fileInput = document.getElementById('fileInput')
+      if (fileInput) fileInput.value = ''
 
     } catch (err) {
       setMessage('❌ 上传失败：' + err.message)
@@ -164,31 +169,23 @@ export default function AdminPage() {
     border: '1px solid #e0e0e0', fontSize: '1rem',
     marginBottom: '16px', boxSizing: 'border-box'
   }
-  const labelStyle = {
-    fontSize: '0.85rem', color: '#666', marginBottom: '6px', display: 'block'
-  }
+  const labelStyle = { fontSize: '0.85rem', color: '#666', marginBottom: '6px', display: 'block' }
 
   if (!authed) {
     return (
       <main style={{ minHeight: '100vh', padding: '40px 20px', background: '#f8f7f4' }}>
         <div style={{ ...cardStyle, maxWidth: '400px' }}>
-          <h2 style={{ marginBottom: '24px', fontSize: '1.4rem', fontWeight: '700' }}>
-            🔑 管理员登录
-          </h2>
-          <input
-            type="password" value={password}
+          <h2 style={{ marginBottom: '24px', fontSize: '1.4rem', fontWeight: '700' }}>🔑 管理员登录</h2>
+          <input type="password" value={password}
             onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAuth()}
-            placeholder="输入管理员密码" style={inputStyle}
-          />
+            placeholder="输入管理员密码" style={inputStyle} />
           <button onClick={handleAuth} style={{
             width: '100%', padding: '14px', background: '#1a1a2e',
             color: 'white', border: 'none', borderRadius: '10px',
             fontSize: '1rem', cursor: 'pointer', fontWeight: '600'
           }}>进入后台</button>
-          {authError && (
-            <p style={{ color: 'red', marginTop: '12px', textAlign: 'center' }}>{authError}</p>
-          )}
+          {authError && <p style={{ color: 'red', marginTop: '12px', textAlign: 'center' }}>{authError}</p>}
         </div>
       </main>
     )
@@ -197,27 +194,40 @@ export default function AdminPage() {
   return (
     <main style={{ minHeight: '100vh', padding: '40px 20px', background: '#f8f7f4' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', marginBottom: '32px'
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800' }}>📁 素材上传</h1>
           <a href="/" style={{ color: '#666', fontSize: '0.9rem' }}>← 返回首页</a>
         </div>
 
         <div style={cardStyle}>
-          <label style={labelStyle}>对应单词 *</label>
+          <label style={labelStyle}>
+            关联单词 *
+            <span style={{ color: '#999', fontWeight: '400', marginLeft: '6px' }}>多个词用逗号分隔</span>
+          </label>
           <input
-            type="text" value={word}
-            onChange={e => setWord(e.target.value)}
-            placeholder="例如：schließen" style={inputStyle}
+            type="text" value={words}
+            onChange={e => setWords(e.target.value)}
+            placeholder="例如：fordern, fördern"
+            style={inputStyle}
           />
+          {/* 词预览 */}
+          {words.trim() && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '-10px', marginBottom: '16px' }}>
+              {words.split(/[,，\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean).map((w, i) => (
+                <span key={i} style={{
+                  background: '#f0f0f0', borderRadius: '20px',
+                  padding: '3px 10px', fontSize: '0.82rem', color: '#333'
+                }}>{w}</span>
+              ))}
+            </div>
+          )}
 
           <label style={labelStyle}>素材标题（可选）</label>
           <input
             type="text" value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="例如：schließen家族图解" style={inputStyle}
+            placeholder="例如：fordern vs fördern 辨析"
+            style={inputStyle}
           />
 
           <label style={labelStyle}>素材类型 *</label>
@@ -246,44 +256,28 @@ export default function AdminPage() {
           {mediaType === 'video' ? (
             <>
               <label style={labelStyle}>视频链接 *</label>
-              <input
-                type="text" value={videoUrl}
+              <input type="text" value={videoUrl}
                 onChange={e => setVideoUrl(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
-                style={inputStyle}
-              />
+                style={inputStyle} />
             </>
           ) : (
             <>
               <label style={labelStyle}>
                 选择图片 *
                 <span style={{ color: '#999', fontWeight: '400', marginLeft: '6px' }}>
-                  {mediaType === 'ppt'
-                    ? '可多选，按文件名顺序排列，第一张为封面'
-                    : '可多选，每张独立展示'}
+                  {mediaType === 'ppt' ? '可多选，按文件名顺序排列，第一张为封面' : '可多选，每张独立展示'}
                 </span>
               </label>
-              <input
-                id="fileInput" type="file"
-                accept="image/*" multiple
-                onChange={e => setFiles(
-                  Array.from(e.target.files).sort((a, b) => a.name.localeCompare(b.name))
-                )}
-                style={{ ...inputStyle, padding: '10px' }}
-              />
+              <input id="fileInput" type="file" accept="image/*" multiple
+                onChange={e => setFiles(Array.from(e.target.files).sort((a, b) => a.name.localeCompare(b.name)))}
+                style={{ ...inputStyle, padding: '10px' }} />
               {files.length > 0 && (
-                <div style={{
-                  background: '#f8f7f4', borderRadius: '10px',
-                  padding: '12px 16px', marginBottom: '16px'
-                }}>
-                  <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '8px' }}>
-                    已选 {files.length} 个文件：
-                  </p>
+                <div style={{ background: '#f8f7f4', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '8px' }}>已选 {files.length} 个文件：</p>
                   {files.map((f, i) => (
                     <p key={i} style={{ fontSize: '0.82rem', color: '#333', marginBottom: '3px' }}>
-                      {i === 0 && mediaType === 'ppt'
-                        ? `① ${f.name}（封面）`
-                        : `${i + 1}. ${f.name}`}
+                      {i === 0 && mediaType === 'ppt' ? `① ${f.name}（封面）` : `${i + 1}. ${f.name}`}
                     </p>
                   ))}
                 </div>
@@ -298,9 +292,7 @@ export default function AdminPage() {
             fontSize: '1rem', cursor: uploading ? 'not-allowed' : 'pointer',
             fontWeight: '600', marginTop: '8px'
           }}>
-            {uploading
-              ? (progress || '上传中...')
-              : `上传${files.length > 1 ? ` ${files.length} 个文件` : '素材'}`}
+            {uploading ? (progress || '上传中...') : `上传${files.length > 1 ? ` ${files.length} 个文件` : '素材'}`}
           </button>
 
           {message && (
@@ -309,8 +301,14 @@ export default function AdminPage() {
               color: message.startsWith('✅') ? '#2d6a4f' : 'red'
             }}>{message}</p>
           )}
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+            <a href="/admin/materials" style={{ color: '#666', fontSize: '0.85rem' }}>
+              📎 管理素材关联 →
+            </a>
+          </div>
         </div>
       </div>
     </main>
   )
 }
+

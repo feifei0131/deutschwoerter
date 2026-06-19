@@ -11,3 +11,590 @@ body {
   background: #f8f7f4;
   color: #1a1a2e;
 }
+/* ══════════════════════════════════════════════════════════════════════════════
+   WordCard styles — paste into globals.css
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Root & grid ─────────────────────────────────────────────────────────── */
+.wc-root {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.wc-desktop { display: block; }
+.wc-mobile  { display: none; }
+
+.wc-grid {
+  display: grid;
+  grid-template-columns: 210px 1fr 290px;
+  gap: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  min-height: 480px;
+}
+
+/* ─── Left col ────────────────────────────────────────────────────────────── */
+.wc-left {
+  border-right: 1px solid #e5e7eb;
+  padding: 1.25rem 1rem;
+  background: #fafaf9;
+}
+
+/* ─── Mid col ─────────────────────────────────────────────────────────────── */
+.wc-mid {
+  padding: 1.25rem 1.5rem;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+}
+
+/* ─── Right col ───────────────────────────────────────────────────────────── */
+.wc-right {
+  padding: 1rem;
+  background: #fafaf9;
+}
+
+/* ─── Word head ───────────────────────────────────────────────────────────── */
+.wc-word-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.wc-word {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.wc-pos {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.wc-speak {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  text-align: left;
+}
+.wc-speak:hover { color: #111827; }
+
+/* ─── Section label ───────────────────────────────────────────────────────── */
+.wc-section-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── Memory hook ─────────────────────────────────────────────────────────── */
+.wc-hook {
+  background: #f5f3ff;
+  border-left: 2px solid #7c3aed;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  margin-bottom: 1.1rem;
+}
+.wc-hook-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6d28d9;
+  margin-bottom: 4px;
+}
+.wc-hook-text {
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+/* ─── Definitions ─────────────────────────────────────────────────────────── */
+.wc-defs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.wc-def-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f3f4f6;
+  counter-increment: def-counter;
+}
+.wc-defs { counter-reset: def-counter; }
+.wc-def-item::before {
+  content: counter(def-counter);
+  font-size: 0.65rem;
+  color: #d1d5db;
+  font-weight: 500;
+}
+.wc-def-de {
+  font-size: 0.9rem;
+  color: #111827;
+  line-height: 1.4;
+}
+.wc-def-zh {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* ─── Sentences ───────────────────────────────────────────────────────────── */
+.wc-sentences {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.wc-sentence-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.wc-sentence-item:last-child { border-bottom: none; }
+.wc-sentence-de {
+  font-size: 0.875rem;
+  color: #111827;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+.wc-sentence-zh {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ─── Word family ─────────────────────────────────────────────────────────── */
+.wc-family-group { margin-bottom: 10px; }
+.wc-family-group-label {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  margin-bottom: 5px;
+}
+.wc-family-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.wc-tag {
+  font-size: 0.75rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.wc-tag:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+.wc-tag--featured {
+  border-color: #c4b5fd;
+  color: #5b21b6;
+  background: #faf5ff;
+}
+.wc-tag-star { font-size: 0.6rem; }
+
+/* ─── Material gallery ────────────────────────────────────────────────────── */
+.wc-gallery {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wc-thumb {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  position: relative;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+.wc-thumb:hover { border-color: #a5b4fc; }
+.wc-thumb--wide { grid-column: span 2; }
+
+.wc-thumb-img {
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+  display: block;
+}
+.wc-thumb-placeholder {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+}
+.wc-thumb-icon { font-size: 1.5rem; }
+.wc-thumb-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  padding: 4px 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Badges ──────────────────────────────────────────────────────────────── */
+.wc-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.wc-badge--ppt {
+  background: rgba(255,255,255,0.92);
+  color: #5b21b6;
+  border: 1px solid #c4b5fd;
+}
+.wc-badge--video {
+  background: rgba(255,255,255,0.92);
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.wc-badge--count {
+  position: static;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.65rem;
+}
+
+/* ─── Lightbox ────────────────────────────────────────────────────────────── */
+.wc-lightbox-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.wc-lightbox-box {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 860px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 1.5rem;
+}
+.wc-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #6b7280;
+}
+.wc-lightbox-img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+}
+.wc-lightbox-caption {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 0.75rem;
+}
+.wc-lightbox-video-link {
+  display: block;
+  text-align: center;
+  font-size: 1rem;
+  color: #1d4ed8;
+  padding: 2rem;
+}
+.wc-lightbox-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+.wc-lightbox-nav button {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #374151;
+}
+.wc-lightbox-nav button:disabled { opacity: 0.3; cursor: default; }
+.wc-lightbox-nav span { font-size: 0.8rem; color: #6b7280; }
+
+/* ─── Empty state ─────────────────────────────────────────────────────────── */
+.wc-empty {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  padding: 0.5rem 0;
+}
+
+/* ─── Mobile tab layout ───────────────────────────────────────────────────── */
+.wc-mobile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+}
+
+.wc-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+.wc-tab {
+  flex: 1;
+  padding: 10px 6px;
+  font-size: 0.8rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.wc-tab--active {
+  color: #111827;
+  font-weight: 500;
+  border-bottom-color: #111827;
+}
+
+.wc-tab-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  min-height: 280px;
+}
+
+/* ─── Responsive breakpoint ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .wc-desktop { display: none; }
+  .wc-mobile  { display: block; }
+  .wc-root    { padding: 1rem 0.75rem; }
+}
+
+/* ─── Admin & form helpers (added in merge) ───────────────────────────────── */
+.wc-admin-btn {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #2d6a4f;
+  color: #2d6a4f;
+  background: none;
+  cursor: pointer;
+}
+.wc-admin-btn:hover { background: #f0faf4; }
+
+.wc-add-family-form {
+  background: #f0faf4;
+  border: 1px solid #b7e4c7;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.wc-add-family-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #2d6a4f;
+  margin-bottom: 10px;
+}
+
+.wc-input {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.875rem;
+  background: white;
+  color: #111827;
+  min-width: 0;
+}
+
+.wc-btn-primary {
+  background: #1a1a2e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.wc-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.wc-btn-secondary {
+  background: #f0f0f0;
+  color: #555;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* ─── Override family tag to show meaning below word ─────────────────────── */
+.wc-tag {
+  flex-direction: column;
+  align-items: flex-start;
+  border-left: 3px solid #1a1a2e;
+  border-radius: 10px;
+  padding: 8px 12px;
+  text-align: left;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+/* ─── Video thumbnail overlay ─────────────────────────────────────────────── */
+.wc-thumb-video-wrap {
+  position: relative;
+}
+.wc-thumb-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.25);
+  transition: background 0.15s;
+}
+.wc-thumb-play-overlay span {
+  font-size: 1.6rem;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.wc-thumb:hover .wc-thumb-play-overlay {
+  background: rgba(0,0,0,0.38);
+}
+
+/* ─── Lightbox iframe embed ───────────────────────────────────────────────── */
+.wc-lightbox-video-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+}
+.wc-lightbox-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+/* ─── Material delete button ──────────────────────────────────────────────── */
+.wc-thumb-delete {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.85);
+  color: white;
+  border: none;
+  font-size: 0.65rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 10;
+  line-height: 1;
+}
+.wc-thumb:hover .wc-thumb-delete {
+  opacity: 1;
+}
+.wc-thumb-delete:disabled {
+  background: rgba(156,163,175,0.85);
+  cursor: not-allowed;
+}
+
+/* ─── Word family tag with delete ────────────────────────────────────────── */
+.wc-tag-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.wc-tag-delete {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: none;
+  font-size: 0.55rem;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  z-index: 5;
+}
+.wc-tag-wrap:hover .wc-tag-delete {
+  display: flex;
+}
+.wc-tag-delete:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* ─── Lemma (base form) hint ──────────────────────────────────────────────── */
+.wc-lemma-hint {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: #7c3aed;
+  background: #f5f3ff;
+  border: 1px solid #ddd8fe;
+  border-radius: 20px;
+  padding: 2px 10px;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: background 0.15s;
+}
+.wc-lemma-hint:hover {
+  background: #ede9fe;
+}
