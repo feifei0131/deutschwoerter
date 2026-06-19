@@ -30,21 +30,30 @@ function MaterialRow({ material, onUpdate }) {
     const w = newWord.trim().toLowerCase()
     if (!w) return
     setSaving(true)
-    // upsert word
-    const { data: wordRow } = await supabase
-      .from('words')
-      .upsert({ word: w }, { onConflict: 'word' })
-      .select('id')
-      .single()
-    if (wordRow?.id) {
-      await supabase.from('material_words').upsert(
-        { material_id: material.id, word_id: wordRow.id },
-        { onConflict: 'material_id,word_id', ignoreDuplicates: true }
-      )
-      await fetchLinkedWords()
-      setNewWord('')
-      setAdding(false)
-      onUpdate?.()
+    try {
+      // 先查是否存在
+      let wordId = null
+      const { data: existing } = await supabase
+        .from('words').select('id').eq('word', w).single()
+      if (existing?.id) {
+        wordId = existing.id
+      } else {
+        const { data: created } = await supabase
+          .from('words').insert({ word: w }).select('id').single()
+        wordId = created?.id
+      }
+      if (wordId) {
+        await supabase.from('material_words').upsert(
+          { material_id: material.id, word_id: wordId },
+          { onConflict: 'material_id,word_id', ignoreDuplicates: true }
+        )
+        await fetchLinkedWords()
+        setNewWord('')
+        setAdding(false)
+        onUpdate?.()
+      }
+    } catch (err) {
+      alert('添加失败：' + err.message)
     }
     setSaving(false)
   }
