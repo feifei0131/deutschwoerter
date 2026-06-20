@@ -335,7 +335,7 @@ function WordFamily({ wordFamily: initialFamily, onWordClick, isAdmin, word, onF
         ) : null
       )}
 
-      {(!localFamily || localFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
+      {(!wordFamily || wordFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
     </div>
   )
 }
@@ -613,8 +613,8 @@ export default function WordCard({ data, onWordClick }) {
               {materialCount > 0 && <span className="wc-badge wc-badge--count">{materialCount}</span>}
               {isAdmin && (
                 <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                  <a href="/admin" target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>＋ 上传</a>
-                  <a href="/admin/materials" target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>📎 关联</a>
+                  <a href={`/admin?back=${encodeURIComponent(word)}`} target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>＋ 上传</a>
+                  <a href={`/admin/materials?back=${encodeURIComponent(word)}`} target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>📎 关联</a>
                 </span>
               )}
             </p>

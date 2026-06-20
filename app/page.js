@@ -1,18 +1,29 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import SearchBar from '@/components/SearchBar'
 import WordCard from '@/components/WordCard'
 
-export default function Home() {
-  const [wordData, setWordData] = useState(null)   // 完整数据对象
+function HomeContent() {
+  const [wordData, setWordData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // 页面加载时读 URL 参数自动搜索
+  useEffect(() => {
+    const w = searchParams.get('w')
+    if (w) handleSearch(w)
+  }, [])
 
   async function handleSearch(word) {
     if (!word?.trim()) return
     setLoading(true)
     setError(null)
     setWordData(null)
+    // 把词写入 URL，方便返回时恢复
+    router.replace(`/?w=${encodeURIComponent(word.trim())}`, { scroll: false })
 
     try {
       const res = await fetch(`/api/analyze?word=${encodeURIComponent(word.trim())}`)
@@ -21,7 +32,6 @@ export default function Home() {
         throw new Error(errData.error || '查询失败，请稍后重试')
       }
       const json = await res.json()
-      // json 预期结构：{ word, wordData, wordFamily, materials }
       setWordData(json)
     } catch (e) {
       setError(e.message || '出错了')
@@ -39,7 +49,6 @@ export default function Home() {
         borderBottom: '1px solid #e5e7eb',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',   // ← 加这行
         gap: '24px',
         background: '#fff',
         position: 'sticky',
@@ -110,5 +119,13 @@ export default function Home() {
       </div>
 
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   )
 }

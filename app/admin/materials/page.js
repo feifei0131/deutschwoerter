@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function getVideoThumb(url) {
@@ -14,9 +15,7 @@ function MaterialRow({ material, onUpdate }) {
   const [saving, setSaving] = useState(false)
   const [unlinking, setUnlinking] = useState(null)
 
-  useEffect(() => {
-    fetchLinkedWords()
-  }, [material.id])
+  useEffect(() => { fetchLinkedWords() }, [material.id])
 
   async function fetchLinkedWords() {
     const { data } = await supabase
@@ -30,57 +29,52 @@ function MaterialRow({ material, onUpdate }) {
     const w = newWord.trim().toLowerCase()
     if (!w) return
     setSaving(true)
-    // upsert word
-    const { data: wordRow } = await supabase
-      .from('words')
-      .upsert({ word: w }, { onConflict: 'word' })
-      .select('id')
-      .single()
-    if (wordRow?.id) {
-      await supabase.from('material_words').upsert(
-        { material_id: material.id, word_id: wordRow.id },
-        { onConflict: 'material_id,word_id', ignoreDuplicates: true }
-      )
-      await fetchLinkedWords()
-      setNewWord('')
-      setAdding(false)
-      onUpdate?.()
+    try {
+      const upper = w.charAt(0).toUpperCase() + w.slice(1)
+      const { data: existingUpper } = await supabase.from('words').select('id').eq('word', upper).single()
+      const { data: existingLower } = !existingUpper
+        ? await supabase.from('words').select('id').eq('word', w).single()
+        : { data: null }
+      let wordId = existingUpper?.id || existingLower?.id
+      if (!wordId) {
+        const { data: created } = await supabase.from('words').insert({ word: w }).select('id').single()
+        wordId = created?.id
+      }
+      if (wordId) {
+        await supabase.from('material_words').upsert(
+          { material_id: material.id, word_id: wordId },
+          { onConflict: 'material_id,word_id', ignoreDuplicates: true }
+        )
+        await fetchLinkedWords()
+        setNewWord('')
+        setAdding(false)
+        onUpdate?.()
+      }
+    } catch (err) {
+      alert('添加失败：' + err.message)
     }
     setSaving(false)
   }
 
   async function removeWord(wordId) {
     setUnlinking(wordId)
-    await supabase.from('material_words')
-      .delete()
-      .eq('material_id', material.id)
-      .eq('word_id', wordId)
+    await supabase.from('material_words').delete()
+      .eq('material_id', material.id).eq('word_id', wordId)
     setLinkedWords(prev => prev.filter(r => r.word_id !== wordId))
     setUnlinking(null)
   }
 
-  const thumb = material.media_type === 'video'
-    ? getVideoThumb(material.file_url)
-    : material.file_url
+  const thumb = material.media_type === 'video' ? getVideoThumb(material.file_url) : material.file_url
 
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '80px 1fr',
-      gap: '16px',
-      padding: '16px',
-      background: 'white',
-      borderRadius: '12px',
-      border: '1px solid #e5e7eb',
-      marginBottom: '10px',
-      alignItems: 'start'
+      display: 'grid', gridTemplateColumns: '80px 1fr', gap: '16px',
+      padding: '16px', background: 'white', borderRadius: '12px',
+      border: '1px solid #e5e7eb', marginBottom: '10px', alignItems: 'start'
     }}>
-      {/* 缩略图 */}
       <div style={{
-        width: '80px', height: '60px', borderRadius: '8px',
-        overflow: 'hidden', background: '#f3f4f6',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0
+        width: '80px', height: '60px', borderRadius: '8px', overflow: 'hidden',
+        background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
       }}>
         {thumb
           ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -89,79 +83,46 @@ function MaterialRow({ material, onUpdate }) {
             </span>
         }
       </div>
-
-      {/* 内容 */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <p style={{ fontWeight: 600, fontSize: '0.9rem', color: '#111' }}>
             {material.group_title || material.title || '无标题'}
           </p>
-          <span style={{
-            fontSize: '0.65rem', padding: '2px 7px', borderRadius: '20px',
-            background: '#f0f0f0', color: '#666'
-          }}>
+          <span style={{ fontSize: '0.65rem', padding: '2px 7px', borderRadius: '20px', background: '#f0f0f0', color: '#666' }}>
             {material.media_type === 'ppt' ? 'PPT' : material.media_type === 'video' ? '视频' : '图片'}
           </span>
         </div>
-
-        {/* 关联词标签 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-          {linkedWords.length === 0 && (
-            <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>暂无关联词</span>
-          )}
+          {linkedWords.length === 0 && <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>暂无关联词</span>}
           {linkedWords.map(r => (
             <span key={r.word_id} style={{
               display: 'inline-flex', alignItems: 'center', gap: '4px',
-              background: '#eff6ff', color: '#1d4ed8',
-              borderRadius: '20px', padding: '3px 10px', fontSize: '0.78rem',
-              border: '1px solid #bfdbfe'
+              background: '#eff6ff', color: '#1d4ed8', borderRadius: '20px',
+              padding: '3px 10px', fontSize: '0.78rem', border: '1px solid #bfdbfe'
             }}>
               {r.word}
-              <button
-                onClick={() => removeWord(r.word_id)}
-                disabled={unlinking === r.word_id}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#93c5fd', fontSize: '0.7rem', padding: '0',
-                  lineHeight: 1, display: 'flex', alignItems: 'center'
-                }}
-              >
+              <button onClick={() => removeWord(r.word_id)} disabled={unlinking === r.word_id}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93c5fd', fontSize: '0.7rem', padding: 0, lineHeight: 1 }}>
                 {unlinking === r.word_id ? '…' : '✕'}
               </button>
             </span>
           ))}
-
-          {/* 添加关联词 */}
           {adding ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <input
-                autoFocus
-                value={newWord}
-                onChange={e => setNewWord(e.target.value)}
+              <input autoFocus value={newWord} onChange={e => setNewWord(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addWord(); if (e.key === 'Escape') setAdding(false) }}
                 placeholder="输入单词"
-                style={{
-                  width: '100px', padding: '3px 8px', borderRadius: '8px',
-                  border: '1px solid #ddd', fontSize: '0.78rem'
-                }}
-              />
-              <button onClick={addWord} disabled={saving} style={{
-                background: '#1a1a2e', color: 'white', border: 'none',
-                borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', cursor: 'pointer'
-              }}>
+                style={{ width: '100px', padding: '3px 8px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.78rem' }} />
+              <button onClick={() => addWord()} disabled={saving}
+                style={{ background: '#1a1a2e', color: 'white', border: 'none', borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
                 {saving ? '…' : '确认'}
               </button>
-              <button onClick={() => { setAdding(false); setNewWord('') }} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#9ca3af', fontSize: '0.8rem'
-              }}>取消</button>
+              <button onClick={() => { setAdding(false); setNewWord('') }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.8rem' }}>取消</button>
             </span>
           ) : (
-            <button onClick={() => setAdding(true)} style={{
-              background: 'none', border: '1px dashed #d1d5db',
-              borderRadius: '20px', padding: '3px 10px',
-              fontSize: '0.75rem', color: '#6b7280', cursor: 'pointer'
-            }}>
+            <button onClick={() => setAdding(true)}
+              style={{ background: 'none', border: '1px dashed #d1d5db', borderRadius: '20px', padding: '3px 10px', fontSize: '0.75rem', color: '#6b7280', cursor: 'pointer' }}>
               ＋ 关联词
             </button>
           )}
@@ -178,50 +139,12 @@ export default function MaterialsManagePage() {
   const [materials, setMaterials] = useState([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
+  const searchParams = useSearchParams()
+  const backWord = searchParams.get('back') || ''
 
-  // 自动登录
-  useEffect(() => {
-    const saved = localStorage.getItem('adminPwd')
-    if (saved) authWithPassword(saved)
-  }, [])
-
-  // authed 变为 true 时加载素材
-  useEffect(() => {
-    if (authed) loadMaterials()
-  }, [authed])
-
-async function authWithPassword(pwd) {
-  const res = await fetch('/api/admin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: pwd })
-  })
-  const data = await res.json()
-  if (data.success) { setAuthed(true); setAuthError('') }
-}
-
-  async function handleAuth() {
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    })
-    const data = await res.json()
-    if (data.success) {
-      setAuthed(true); setAuthError('')
-      localStorage.setItem('adminPwd', password)
-    }
-    else setAuthError('密码错误')
-  }
-
-  async function loadMaterials() {
+  const loadMaterials = useCallback(async () => {
     setLoading(true)
-    // 只取每个 group_id 的第一张（封面），独立素材全取
-    const { data } = await supabase
-      .from('materials')
-      .select('*')
-      .order('slide_order')
-    // 去重：PPT 组只保留 is_cover 那张
+    const { data } = await supabase.from('materials').select('*').order('slide_order')
     const seen = new Set()
     const deduped = (data || []).filter(m => {
       if (!m.group_id) return true
@@ -231,6 +154,40 @@ async function authWithPassword(pwd) {
     })
     setMaterials(deduped)
     setLoading(false)
+  }, [])
+
+  const authWithPassword = useCallback(async (pwd) => {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    })
+    const data = await res.json()
+    if (data.success) { setAuthed(true); setAuthError('') }
+  }, [])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('adminPwd')
+    if (saved) authWithPassword(saved)
+  }, [authWithPassword])
+
+  useEffect(() => {
+    if (authed) loadMaterials()
+  }, [authed, loadMaterials])
+
+  async function handleAuth() {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+    const data = await res.json()
+    if (data.success) {
+      localStorage.setItem('adminPwd', password)
+      setAuthed(true); setAuthError('')
+    } else {
+      setAuthError('密码错误')
+    }
   }
 
   const filtered = materials.filter(m =>
@@ -246,8 +203,7 @@ async function authWithPassword(pwd) {
             onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAuth()}
             placeholder="输入管理员密码"
-            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '0.95rem', marginBottom: '12px', boxSizing: 'border-box' }}
-          />
+            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '0.95rem', marginBottom: '12px', boxSizing: 'border-box' }} />
           <button onClick={handleAuth} style={{
             width: '100%', padding: '12px', background: '#1a1a2e', color: 'white',
             border: 'none', borderRadius: '8px', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '600'
@@ -265,28 +221,17 @@ async function authWithPassword(pwd) {
           <h1 style={{ fontSize: '1.5rem', fontWeight: '800' }}>📎 素材关联管理</h1>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             <a href="/admin" style={{ color: '#666', fontSize: '0.85rem' }}>← 上传素材</a>
-            <a href="/" style={{ color: '#666', fontSize: '0.85rem' }}>← 返回首页</a>
+            <a href={backWord ? `/?w=${encodeURIComponent(backWord)}` : '/'} style={{ color: '#666', fontSize: '0.85rem' }}>← 返回首页</a>
           </div>
         </div>
-
-        <input
-          type="text" value={filter}
-          onChange={e => setFilter(e.target.value)}
+        <input type="text" value={filter} onChange={e => setFilter(e.target.value)}
           placeholder="搜索素材标题..."
-          style={{
-            width: '100%', padding: '10px 16px', borderRadius: '10px',
-            border: '1px solid #e0e0e0', fontSize: '0.9rem',
-            marginBottom: '16px', boxSizing: 'border-box', background: 'white'
-          }}
-        />
-
+          style={{ width: '100%', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e0e0e0', fontSize: '0.9rem', marginBottom: '16px', boxSizing: 'border-box', background: 'white' }} />
         {loading
           ? <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>加载中...</p>
           : filtered.length === 0
             ? <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>暂无素材</p>
-            : filtered.map(m => (
-                <MaterialRow key={m.id} material={m} onUpdate={loadMaterials} />
-              ))
+            : filtered.map(m => <MaterialRow key={m.id} material={m} onUpdate={loadMaterials} />)
         }
       </div>
     </main>

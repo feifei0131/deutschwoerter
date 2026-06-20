@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function toSafeFileName(str) {
@@ -30,6 +31,9 @@ export default function AdminPage() {
       localStorage.setItem('adminPwd', password)
     }
   }
+
+  const searchParams = useSearchParams()
+  const backWord = searchParams.get('back') || ''
 
   const [words, setWords] = useState('')        // 逗号分隔，支持多词
   const [title, setTitle] = useState('')
@@ -214,7 +218,7 @@ export default function AdminPage() {
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800' }}>📁 素材上传</h1>
-          <a href="/" style={{ color: '#666', fontSize: '0.9rem' }}>← 返回首页</a>
+          <a href={backWord ? `/?w=${encodeURIComponent(backWord)}` : '/'} style={{ color: '#666', fontSize: '0.9rem' }}>← 返回首页</a>
         </div>
 
         <div style={cardStyle}>
