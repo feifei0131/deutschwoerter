@@ -49,6 +49,7 @@ function HomeContent() {
         borderBottom: '1px solid #e5e7eb',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: '24px',
         background: '#fff',
         position: 'sticky',

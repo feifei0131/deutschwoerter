@@ -335,7 +335,7 @@ function WordFamily({ wordFamily: initialFamily, onWordClick, isAdmin, word, onF
         ) : null
       )}
 
-      {(!wordFamily || wordFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
+      {(!localFamily || localFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
     </div>
   )
 }
