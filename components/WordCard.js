@@ -335,7 +335,7 @@ function WordFamily({ wordFamily: initialFamily, onWordClick, isAdmin, word, onF
         ) : null
       )}
 
-      {(!localFamily || localFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
+      {(!wordFamily || wordFamily.length === 0) && <p className="wc-empty">暂无词族数据</p>}
     </div>
   )
 }
@@ -520,7 +520,17 @@ export default function WordCard({ data, onWordClick }) {
   const tabPanels = [
     { label: '📖 词义', content: <><HookBlock /><DefinitionsBlock /><SentencesBlock /></> },
     { label: '🌿 词族', content: <FamilyWithAdmin /> },
-    { label: materialCount > 0 ? `✦ 素材 ${materialCount}` : '✦ 素材', content: <MaterialGallery materials={materials} isAdmin={isAdmin} /> },
+    { label: materialCount > 0 ? `✦ 素材 ${materialCount}` : '✦ 素材', content: (
+      <>
+        {isAdmin && (
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+            <a href="/admin" target="_blank" style={{ fontSize: '0.8rem', color: '#6b7280', textDecoration: 'none' }}>＋ 上传素材</a>
+            <a href="/admin/materials" target="_blank" style={{ fontSize: '0.8rem', color: '#6b7280', textDecoration: 'none' }}>📎 管理关联</a>
+          </div>
+        )}
+        <MaterialGallery materials={materials} isAdmin={isAdmin} />
+      </>
+    )},
   ]
 
   return (
@@ -601,6 +611,12 @@ export default function WordCard({ data, onWordClick }) {
             <p className="wc-section-label">
               精选素材
               {materialCount > 0 && <span className="wc-badge wc-badge--count">{materialCount}</span>}
+              {isAdmin && (
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                  <a href="/admin" target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>＋ 上传</a>
+                  <a href="/admin/materials" target="_blank" style={{ fontSize: '0.7rem', color: '#6b7280', textDecoration: 'none' }}>📎 关联</a>
+                </span>
+              )}
             </p>
             <MaterialGallery materials={materials} isAdmin={isAdmin} />
           </aside>

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 function toSafeFileName(str) {
@@ -12,6 +12,24 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('adminPwd')
+    if (saved) handleAuthWithPassword(saved)
+  }, [])
+
+  async function handleAuthWithPassword(pwd) {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    })
+    const data = await res.json()
+    if (data.success) {
+      setAuthed(true); setAuthError('')
+      localStorage.setItem('adminPwd', password)
+    }
+  }
 
   const [words, setWords] = useState('')        // 逗号分隔，支持多词
   const [title, setTitle] = useState('')
@@ -35,23 +53,12 @@ export default function AdminPage() {
 
   // 确保词在 words 表存在，返回 word_id
   async function getOrCreateWord(w) {
-    const lower = w.trim().toLowerCase()
-    const upper = lower.charAt(0).toUpperCase() + lower.slice(1)
-
-    // 先查大写版本（名词）
-    const { data: upperRow } = await supabase
-      .from('words').select('id').eq('word', upper).single()
-    if (upperRow?.id) return upperRow.id
-
-    // 再查小写版本
-    const { data: lowerRow } = await supabase
-      .from('words').select('id').eq('word', lower).single()
-    if (lowerRow?.id) return lowerRow.id
-
-    // 都没有，创建小写版本（词性未知，等用户查词时再规范化）
-    const { data: created } = await supabase
-      .from('words').insert({ word: lower }).select('id').single()
-    return created?.id
+    const { data } = await supabase
+      .from('words')
+      .upsert({ word: w }, { onConflict: 'word' })
+      .select('id')
+      .single()
+    return data?.id
   }
 
   // 将素材关联到多个词
@@ -312,14 +319,8 @@ export default function AdminPage() {
               color: message.startsWith('✅') ? '#2d6a4f' : 'red'
             }}>{message}</p>
           )}
-          <div style={{ textAlign: 'center', marginTop: '24px' }}>
-            <a href="/admin/materials" style={{ color: '#666', fontSize: '0.85rem' }}>
-              📎 管理素材关联 →
-            </a>
-          </div>
         </div>
       </div>
     </main>
   )
 }
-

@@ -30,34 +30,21 @@ function MaterialRow({ material, onUpdate }) {
     const w = newWord.trim().toLowerCase()
     if (!w) return
     setSaving(true)
-    try {
-      // 先查是否存在
-      let wordId = null
-      const upper = w.charAt(0).toUpperCase() + w.slice(1)
-      const { data: existingUpper } = await supabase
-        .from('words').select('id').eq('word', upper).single()
-      const { data: existing } = existingUpper
-        ? { data: existingUpper }
-        : await supabase.from('words').select('id').eq('word', w).single()
-      if (existing?.id) {
-        wordId = existing.id
-      } else {
-        const { data: created } = await supabase
-          .from('words').insert({ word: w }).select('id').single()
-        wordId = created?.id
-      }
-      if (wordId) {
-        await supabase.from('material_words').upsert(
-          { material_id: material.id, word_id: wordId },
-          { onConflict: 'material_id,word_id', ignoreDuplicates: true }
-        )
-        await fetchLinkedWords()
-        setNewWord('')
-        setAdding(false)
-        onUpdate?.()
-      }
-    } catch (err) {
-      alert('添加失败：' + err.message)
+    // upsert word
+    const { data: wordRow } = await supabase
+      .from('words')
+      .upsert({ word: w }, { onConflict: 'word' })
+      .select('id')
+      .single()
+    if (wordRow?.id) {
+      await supabase.from('material_words').upsert(
+        { material_id: material.id, word_id: wordRow.id },
+        { onConflict: 'material_id,word_id', ignoreDuplicates: true }
+      )
+      await fetchLinkedWords()
+      setNewWord('')
+      setAdding(false)
+      onUpdate?.()
     }
     setSaving(false)
   }
@@ -158,7 +145,7 @@ function MaterialRow({ material, onUpdate }) {
                   border: '1px solid #ddd', fontSize: '0.78rem'
                 }}
               />
-              <button onClick={() => addWord()} disabled={saving} style={{
+              <button onClick={addWord} disabled={saving} style={{
                 background: '#1a1a2e', color: 'white', border: 'none',
                 borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', cursor: 'pointer'
               }}>
@@ -192,6 +179,21 @@ export default function MaterialsManagePage() {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
 
+  useEffect(() => {
+    const saved = localStorage.getItem('adminPwd')
+    if (saved) authWithPassword(saved)
+  }, [])
+
+  async function authWithPassword(pwd) {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    })
+    const data = await res.json()
+    if (data.success) { setAuthed(true); setAuthError(''); loadMaterials() }
+  }
+
   async function handleAuth() {
     const res = await fetch('/api/admin', {
       method: 'POST',
@@ -199,7 +201,11 @@ export default function MaterialsManagePage() {
       body: JSON.stringify({ password })
     })
     const data = await res.json()
-    if (data.success) { setAuthed(true); setAuthError(''); loadMaterials() }
+    if (data.success) {
+      setAuthed(true); setAuthError('')
+      localStorage.setItem('adminPwd', password)
+      loadMaterials()
+    }
     else setAuthError('密码错误')
   }
 

@@ -598,3 +598,10 @@ body {
 .wc-lemma-hint:hover {
   background: #ede9fe;
 }
+
+/* ─── Section label flex for admin links ─────────────────────────────────── */
+.wc-right .wc-section-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
