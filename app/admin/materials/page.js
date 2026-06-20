@@ -33,8 +33,12 @@ function MaterialRow({ material, onUpdate }) {
     try {
       // 先查是否存在
       let wordId = null
-      const { data: existing } = await supabase
-        .from('words').select('id').eq('word', w).single()
+      const upper = w.charAt(0).toUpperCase() + w.slice(1)
+      const { data: existingUpper } = await supabase
+        .from('words').select('id').eq('word', upper).single()
+      const { data: existing } = existingUpper
+        ? { data: existingUpper }
+        : await supabase.from('words').select('id').eq('word', w).single()
       if (existing?.id) {
         wordId = existing.id
       } else {

@@ -35,12 +35,23 @@ export default function AdminPage() {
 
   // 确保词在 words 表存在，返回 word_id
   async function getOrCreateWord(w) {
-    const { data } = await supabase
-      .from('words')
-      .upsert({ word: w }, { onConflict: 'word' })
-      .select('id')
-      .single()
-    return data?.id
+    const lower = w.trim().toLowerCase()
+    const upper = lower.charAt(0).toUpperCase() + lower.slice(1)
+
+    // 先查大写版本（名词）
+    const { data: upperRow } = await supabase
+      .from('words').select('id').eq('word', upper).single()
+    if (upperRow?.id) return upperRow.id
+
+    // 再查小写版本
+    const { data: lowerRow } = await supabase
+      .from('words').select('id').eq('word', lower).single()
+    if (lowerRow?.id) return lowerRow.id
+
+    // 都没有，创建小写版本（词性未知，等用户查词时再规范化）
+    const { data: created } = await supabase
+      .from('words').insert({ word: lower }).select('id').single()
+    return created?.id
   }
 
   // 将素材关联到多个词
