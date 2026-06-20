@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -9,33 +9,14 @@ function toSafeFileName(str) {
     .replace(/ß/g, 'ss').replace(/[^a-z0-9_-]/g, '_')
 }
 
-export default function AdminPage() {
-  const [password, setPassword] = useState('')
-  const [authed, setAuthed] = useState(false)
-  const [authError, setAuthError] = useState('')
-
-  useEffect(() => {
-    const saved = localStorage.getItem('adminPwd')
-    if (saved) handleAuthWithPassword(saved)
-  }, [])
-
-  async function handleAuthWithPassword(pwd) {
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd })
-    })
-    const data = await res.json()
-    if (data.success) {
-      setAuthed(true); setAuthError('')
-      localStorage.setItem('adminPwd', password)
-    }
-  }
-
+function AdminPageContent() {
   const searchParams = useSearchParams()
   const backWord = searchParams.get('back') || ''
 
-  const [words, setWords] = useState('')        // 逗号分隔，支持多词
+  const [password, setPassword] = useState('')
+  const [authed, setAuthed] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [words, setWords] = useState('')
   const [title, setTitle] = useState('')
   const [mediaType, setMediaType] = useState('image')
   const [videoUrl, setVideoUrl] = useState('')
@@ -44,6 +25,21 @@ export default function AdminPage() {
   const [progress, setProgress] = useState('')
   const [message, setMessage] = useState('')
 
+  useEffect(() => {
+    const saved = localStorage.getItem('adminPwd')
+    if (saved) authWithPassword(saved)
+  }, [])
+
+  async function authWithPassword(pwd) {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    })
+    const data = await res.json()
+    if (data.success) { setAuthed(true); setAuthError('') }
+  }
+
   async function handleAuth() {
     const res = await fetch('/api/admin', {
       method: 'POST',
@@ -51,21 +47,25 @@ export default function AdminPage() {
       body: JSON.stringify({ password })
     })
     const data = await res.json()
-    if (data.success) { setAuthed(true); setAuthError('') }
-    else setAuthError('密码错误')
+    if (data.success) {
+      setAuthed(true); setAuthError('')
+      localStorage.setItem('adminPwd', password)
+    } else {
+      setAuthError('密码错误')
+    }
   }
 
-  // 确保词在 words 表存在，返回 word_id
   async function getOrCreateWord(w) {
-    const { data } = await supabase
-      .from('words')
-      .upsert({ word: w }, { onConflict: 'word' })
-      .select('id')
-      .single()
-    return data?.id
+    const lower = w.trim().toLowerCase()
+    const upper = lower.charAt(0).toUpperCase() + lower.slice(1)
+    const { data: upperRow } = await supabase.from('words').select('id').eq('word', upper).single()
+    if (upperRow?.id) return upperRow.id
+    const { data: lowerRow } = await supabase.from('words').select('id').eq('word', lower).single()
+    if (lowerRow?.id) return lowerRow.id
+    const { data: created } = await supabase.from('words').insert({ word: lower }).select('id').single()
+    return created?.id
   }
 
-  // 将素材关联到多个词
   async function linkMaterialToWords(materialId, wordIds) {
     const rows = wordIds.map(word_id => ({ material_id: materialId, word_id }))
     await supabase.from('material_words').upsert(rows, {
@@ -84,32 +84,20 @@ export default function AdminPage() {
     setMessage('')
 
     try {
-      // 获取所有关联词的 word_id（自动创建不存在的词）
       const wordIds = await Promise.all(wordList.map(getOrCreateWord))
       const validWordIds = wordIds.filter(Boolean)
-      // 取第一个词做文件名前缀
       const safeWord = toSafeFileName(wordList[0])
 
       if (mediaType === 'video') {
-        const { data: material } = await supabase
-          .from('materials')
-          .insert({
-            type: 'video',
-            media_type: 'video',
-            title: title || videoUrl,
-            file_url: videoUrl,
-            uploaded_by: 'admin'
-          })
-          .select('id')
-          .single()
+        const { data: material } = await supabase.from('materials')
+          .insert({ type: 'video', media_type: 'video', title: title || videoUrl, file_url: videoUrl, uploaded_by: 'admin' })
+          .select('id').single()
         await linkMaterialToWords(material.id, validWordIds)
         setMessage(`✅ 视频链接添加成功！已关联：${wordList.join('、')}`)
 
       } else if (mediaType === 'image') {
-        const { data: existing } = await supabase
-          .from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
+        const { data: existing } = await supabase.from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
         let startOrder = existing?.[0]?.slide_order != null ? existing[0].slide_order + 1 : 0
-
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           setProgress(`上传中 ${i + 1} / ${files.length}`)
@@ -118,18 +106,9 @@ export default function AdminPage() {
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
-          const { data: material } = await supabase
-            .from('materials')
-            .insert({
-              type: 'image',
-              media_type: 'image',
-              title: title || file.name,
-              file_url: urlData.publicUrl,
-              slide_order: startOrder + i,
-              uploaded_by: 'admin'
-            })
-            .select('id')
-            .single()
+          const { data: material } = await supabase.from('materials')
+            .insert({ type: 'image', media_type: 'image', title: title || file.name, file_url: urlData.publicUrl, slide_order: startOrder + i, uploaded_by: 'admin' })
+            .select('id').single()
           await linkMaterialToWords(material.id, validWordIds)
         }
         setMessage(`✅ 成功上传 ${files.length} 张图片！已关联：${wordList.join('、')}`)
@@ -137,10 +116,8 @@ export default function AdminPage() {
       } else if (mediaType === 'ppt') {
         const groupId = `ppt_${safeWord}_${Date.now()}`
         const groupTitle = title || `${wordList[0]} PPT`
-        const { data: existing } = await supabase
-          .from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
+        const { data: existing } = await supabase.from('materials').select('slide_order').order('slide_order', { ascending: false }).limit(1)
         let startOrder = existing?.[0]?.slide_order != null ? existing[0].slide_order + 1 : 0
-
         for (let i = 0; i < files.length; i++) {
           const file = files[i]
           setProgress(`上传中 ${i + 1} / ${files.length}`)
@@ -149,21 +126,9 @@ export default function AdminPage() {
           const { error } = await supabase.storage.from('materials').upload(fileName, file)
           if (error) throw error
           const { data: urlData } = supabase.storage.from('materials').getPublicUrl(fileName)
-          const { data: material } = await supabase
-            .from('materials')
-            .insert({
-              type: 'ppt_slide',
-              media_type: 'ppt',
-              title: groupTitle,
-              group_id: groupId,
-              group_title: groupTitle,
-              is_cover: i === 0,
-              file_url: urlData.publicUrl,
-              slide_order: startOrder + i,
-              uploaded_by: 'admin'
-            })
-            .select('id')
-            .single()
+          const { data: material } = await supabase.from('materials')
+            .insert({ type: 'ppt_slide', media_type: 'ppt', title: groupTitle, group_id: groupId, group_title: groupTitle, is_cover: i === 0, file_url: urlData.publicUrl, slide_order: startOrder + i, uploaded_by: 'admin' })
+            .select('id').single()
           await linkMaterialToWords(material.id, validWordIds)
         }
         setMessage(`✅ 成功上传 ${files.length} 张PPT！已关联：${wordList.join('、')}`)
@@ -203,9 +168,8 @@ export default function AdminPage() {
             onKeyDown={e => e.key === 'Enter' && handleAuth()}
             placeholder="输入管理员密码" style={inputStyle} />
           <button onClick={handleAuth} style={{
-            width: '100%', padding: '14px', background: '#1a1a2e',
-            color: 'white', border: 'none', borderRadius: '10px',
-            fontSize: '1rem', cursor: 'pointer', fontWeight: '600'
+            width: '100%', padding: '14px', background: '#1a1a2e', color: 'white',
+            border: 'none', borderRadius: '10px', fontSize: '1rem', cursor: 'pointer', fontWeight: '600'
           }}>进入后台</button>
           {authError && <p style={{ color: 'red', marginTop: '12px', textAlign: 'center' }}>{authError}</p>}
         </div>
@@ -226,31 +190,19 @@ export default function AdminPage() {
             关联单词 *
             <span style={{ color: '#999', fontWeight: '400', marginLeft: '6px' }}>多个词用逗号分隔</span>
           </label>
-          <input
-            type="text" value={words}
-            onChange={e => setWords(e.target.value)}
-            placeholder="例如：fordern, fördern"
-            style={inputStyle}
-          />
-          {/* 词预览 */}
+          <input type="text" value={words} onChange={e => setWords(e.target.value)}
+            placeholder="例如：fordern, fördern" style={inputStyle} />
           {words.trim() && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '-10px', marginBottom: '16px' }}>
               {words.split(/[,，\s]+/).map(w => w.trim().toLowerCase()).filter(Boolean).map((w, i) => (
-                <span key={i} style={{
-                  background: '#f0f0f0', borderRadius: '20px',
-                  padding: '3px 10px', fontSize: '0.82rem', color: '#333'
-                }}>{w}</span>
+                <span key={i} style={{ background: '#f0f0f0', borderRadius: '20px', padding: '3px 10px', fontSize: '0.82rem', color: '#333' }}>{w}</span>
               ))}
             </div>
           )}
 
           <label style={labelStyle}>素材标题（可选）</label>
-          <input
-            type="text" value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="例如：fordern vs fördern 辨析"
-            style={inputStyle}
-          />
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+            placeholder="例如：fordern vs fördern 辨析" style={inputStyle} />
 
           <label style={labelStyle}>素材类型 *</label>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
@@ -263,8 +215,7 @@ export default function AdminPage() {
                 flex: 1, padding: '10px',
                 background: mediaType === opt.value ? '#1a1a2e' : '#f0f0f0',
                 color: mediaType === opt.value ? 'white' : '#333',
-                border: 'none', borderRadius: '10px',
-                cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem'
+                border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem'
               }}>{opt.label}</button>
             ))}
           </div>
@@ -278,10 +229,8 @@ export default function AdminPage() {
           {mediaType === 'video' ? (
             <>
               <label style={labelStyle}>视频链接 *</label>
-              <input type="text" value={videoUrl}
-                onChange={e => setVideoUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                style={inputStyle} />
+              <input type="text" value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..." style={inputStyle} />
             </>
           ) : (
             <>
@@ -318,13 +267,27 @@ export default function AdminPage() {
           </button>
 
           {message && (
-            <p style={{
-              marginTop: '16px', textAlign: 'center', fontWeight: '600',
-              color: message.startsWith('✅') ? '#2d6a4f' : 'red'
-            }}>{message}</p>
+            <p style={{ marginTop: '16px', textAlign: 'center', fontWeight: '600', color: message.startsWith('✅') ? '#2d6a4f' : 'red' }}>
+              {message}
+            </p>
           )}
+
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+            <a href={backWord ? `/admin/materials?back=${encodeURIComponent(backWord)}` : '/admin/materials'}
+              style={{ color: '#666', fontSize: '0.85rem' }}>
+              📎 管理素材关联 →
+            </a>
+          </div>
         </div>
       </div>
     </main>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense>
+      <AdminPageContent />
+    </Suspense>
   )
 }

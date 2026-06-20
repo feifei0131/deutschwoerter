@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -132,7 +132,7 @@ function MaterialRow({ material, onUpdate }) {
   )
 }
 
-export default function MaterialsManagePage() {
+function MaterialsManagePage() {
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
@@ -220,7 +220,7 @@ export default function MaterialsManagePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: '800' }}>📎 素材关联管理</h1>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <a href="/admin" style={{ color: '#666', fontSize: '0.85rem' }}>← 上传素材</a>
+            <a href={backWord ? `/admin?back=${encodeURIComponent(backWord)}` : '/admin'} style={{ color: '#666', fontSize: '0.85rem' }}>← 上传素材</a>
             <a href={backWord ? `/?w=${encodeURIComponent(backWord)}` : '/'} style={{ color: '#666', fontSize: '0.85rem' }}>← 返回首页</a>
           </div>
         </div>
@@ -235,5 +235,13 @@ export default function MaterialsManagePage() {
         }
       </div>
     </main>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <MaterialsManagePage />
+    </Suspense>
   )
 }
