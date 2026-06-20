@@ -179,20 +179,26 @@ export default function MaterialsManagePage() {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
 
+  // 自动登录
   useEffect(() => {
     const saved = localStorage.getItem('adminPwd')
     if (saved) authWithPassword(saved)
   }, [])
 
-  async function authWithPassword(pwd) {
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd })
-    })
-    const data = await res.json()
-    if (data.success) { setAuthed(true); setAuthError(''); loadMaterials() }
-  }
+  // authed 变为 true 时加载素材
+  useEffect(() => {
+    if (authed) loadMaterials()
+  }, [authed])
+
+async function authWithPassword(pwd) {
+  const res = await fetch('/api/admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pwd })
+  })
+  const data = await res.json()
+  if (data.success) { setAuthed(true); setAuthError('') }
+}
 
   async function handleAuth() {
     const res = await fetch('/api/admin', {
@@ -204,7 +210,6 @@ export default function MaterialsManagePage() {
     if (data.success) {
       setAuthed(true); setAuthError('')
       localStorage.setItem('adminPwd', password)
-      loadMaterials()
     }
     else setAuthError('密码错误')
   }
